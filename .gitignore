@@ -1,0 +1,10 @@
+ebin/
+deps/
+.idea/
+.erlang.mk/
+sherlock.d
+sherlock.iml
+test/*.beam
+_rel/
+log
+erl_crash.dump
