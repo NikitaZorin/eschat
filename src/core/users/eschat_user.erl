@@ -4,17 +4,20 @@
 -include("eschat_user_h.hrl").
 
 %% API
--export([name/0]).
--export([new/0]).
--export([now/0, traverse_fun/0]).
+% -export([name/0]).
+% -export([new/0]).
+% -export([now/0, traverse_fun/0]).
 
 -export([get_user/1]).
 -export([new_user/1]).
+-export([name/0]).
 
 
 get_user(Struct) ->
   {Login, NewPassword} = get_struct(Struct),
-  case from_cache(Login, NewPassword) of
+  Test = from_cache(Login, NewPassword),
+  io:format("TEST GET22 ~p~n", [Test]),
+  case Test of
     {true, #user{id = Id}} ->
       {hit, Id};
     _ ->
@@ -22,7 +25,8 @@ get_user(Struct) ->
       case FunR of
         {ok, [{Id} | _]} ->
           UserRec = #user{id = Id, login = Login, password = NewPassword},
-          to_cache(UserRec),
+          eschat_cache:to_cache(UserRec, name(), Login),
+          % to_cache(UserRec),
           {miss, Id};
         {ok, []} -> {error, undefined};
         _ -> {error, db_error}
@@ -48,31 +52,43 @@ get_struct(Struct) ->
   NewPassword = hash_password(Password),
   {Login, NewPassword}.
 
-name() -> ?MODULE.
-new() ->
-  Name = name(),
-  ets:new(Name, [named_table, set, public, {keypos, #user.login}]).
-
-to_cache(Rec) ->
-  ets:insert(name(), Rec).
+name() -> 
+  ?MODULE.
 
 from_cache(Login, Password) ->
-  Now = ?NOW_SEC,
-  case ets:lookup(name(), Login) of
-    [#user{password = Password, ttl = StoredNow} = Rec] when StoredNow >= Now -> {true, Rec};
-    _ -> {false, undefined}
-  end.
+    io:format("PASSWORD ~p~n", [Password]),
+    Now = ?NOW_SEC,
+    case eschat_cache:from_cache(name(), Login) of
+      #user{password = Password} = Rec -> 
+        {true, Rec};
+      _ -> {false, undefined}
+    end.
 
-now() -> ?NOW_SEC.
+% new() ->
+%   Name = name(),
+%   ets:new(Name, [named_table, set, public, {keypos, #user.login}]).
 
-traverse_fun() ->
-  fun (Key, Now) ->
-    case ets:lookup(name(), Key) of
-      [#user{ttl = StoredNow}] when StoredNow >= Now -> ok;
-      [#user{}] -> ets:delete(name(), Key), ok;
-      [] -> ok
-    end
-  end.
+% to_cache(Rec) ->
+%   io:format("REc TEST ~p~n", [R])
+%   ets:insert(name(), Rec).
+
+% from_cache(Login, Password) ->
+%   Now = ?NOW_SEC,
+%   case ets:lookup(name(), Login) of
+%     [#user{password = Password, ttl = StoredNow} = Rec] when StoredNow >= Now -> {true, Rec};
+%     _ -> {false, undefined}
+%   end.
+
+% now() -> ?NOW_SEC.
+
+% traverse_fun() ->
+%   fun (Key, Now) ->
+%     case ets:lookup(name(), Key) of
+%       [#user{ttl = StoredNow}] when StoredNow >= Now -> ok;
+%       [#user{}] -> ets:delete(name(), Key), ok;
+%       [] -> ok
+%     end
+%   end.
 
 
 

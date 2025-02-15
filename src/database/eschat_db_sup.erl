@@ -50,15 +50,25 @@ init([]) ->
         intensity => MaxRestarts,
         period => MaxSecondsBetweenRestarts},
 
-    AChild = #{id => 'eschat_db_user_cache_srv',
+    Procs = [
+    #{id => 'eschat_db_user_cache_srv',
         start => {'eschat_db_user_cache_srv', start_link, []},
         restart => permanent,
         shutdown => 2000,
         type => worker,
-        modules => dynamic},
+        modules => dynamic
+        },
+        #{id => 'eschat_db_session_cache_srv',
+        start => {'eschat_db_session_cache_srv', start_link, []},
+        restart => permanent,
+        shutdown => 2000,
+        type => worker,
+        modules => dynamic
+        }
+    ],
 
 
-    {ok, {SupFlags, [AChild]}}.
+    {ok, {SupFlags, Procs}}.
 
 %%%===================================================================
 %%% Internal functions

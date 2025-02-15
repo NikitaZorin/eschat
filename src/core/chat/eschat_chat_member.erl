@@ -13,6 +13,7 @@
 -export([new/3]).
 -export([get/2]).
 -export([get/1]).
+-export([remove/2]).
 
 new(UserId, ChatId, IsOwner) ->
   Res = eschat_pool_manage:db_runner(<<"INSERT into \"ChatMember\" (user_id, chat_id, is_owner) VALUES($1, $2, $3)">>, [UserId, ChatId, IsOwner]),
@@ -27,17 +28,20 @@ get(ChatId) ->
     {error, Type} -> {error, Type};
     {ok, {_, Users}} ->
       {NewUsers, Owner} = make_users_map(Users),
-      io:format("Owner ~p~n", [Owner]),
       {ok, NewUsers, Owner}
   end.
 
 get(ChatId, UserId) ->
   {_, FunR} = eschat_pool_manage:db_runner(<<"SELECT is_owner FROM public.\"ChatMember\" WHERE user_id = $1 AND chat_id = $2">>, [UserId, ChatId]),
-  io:format("FunR Members: ~p~n", [FunR]),
   case FunR of
     {error, Type} -> {error, Type};
-    {ok, _} -> {ok, ChatId}
+    {ok, IsOwner} -> 
+      {ok, IsOwner}
   end.
+
+
+remove(UserId, ChatId) ->
+  eschat_pool_manage:db_runner(<<"DELETE FROM \"ChatMember\" WHERE chat_id = $1 AND user_id = $2">>, [ChatId, UserId]).
 
 
 
@@ -49,9 +53,9 @@ make_users_map(T) ->
   Owner = find_owner(Users),
   {Users, Owner}.
 
+find_owner([]) ->
+    undefined;
 find_owner([#{is_owner := true, user_id := UserId} = _Owner | _]) ->
   UserId;
 find_owner([_ | Rest]) ->
-  find_owner(Rest);
-find_owner([]) ->
-  undefined.
+  find_owner(Rest).

@@ -14,6 +14,7 @@
 %% API
 -export([new_sess/1]).
 -export([get_sess/1]).
+-export([name/0]).
 
 new_sess(UserId) ->
   SessionId = uuid:to_string(uuid:uuid4()),
@@ -57,6 +58,7 @@ get_sess(SessId) ->
       end.
 
 
+name() -> ?MODULE.
 
 create_active_to() ->
   {MegaSecs, Secs, MicroSecs} = erlang:timestamp(),

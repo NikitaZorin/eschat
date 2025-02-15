@@ -4,6 +4,7 @@ src/core/sessions/eschat_session.erl:: include/eschat_session_h.hrl; @touch $@
 src/core/sessions/eschat_session_cleanup.erl:: include/eschat_session_h.hrl; @touch $@
 src/core/users/eschat_user.erl:: include/eschat_user_h.hrl; @touch $@
 src/database/eschat_db_sup.erl:: include/eschat_user_h.hrl; @touch $@
+src/utils/eschat_cache.erl:: include/eschat_cache_h.hrl; @touch $@
 src/web/handlers/eschat_notfound_h.erl:: /home/ginleaf/learning/eschat/deps/epgsql/include/epgsql.hrl; @touch $@
 src/web/handlers/eschat_user_h.erl:: include/eschat_user_h.hrl; @touch $@
 
