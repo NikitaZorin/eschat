@@ -30,7 +30,7 @@ db_runner(Sql, Arg) ->
       _ -> {error, db_error}
     end
         end,
-  case sherlock:transaction(database, Fun) of
+  case transaction(database, Fun) of
     {error, _Type} = Err ->
       Err;
     Res ->

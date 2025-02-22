@@ -103,14 +103,21 @@ code_change(_OldVsn, State = #eschat_web_srv_state{}, _Extra) ->
 
 
 restart() ->
+  {_, Port} = application:get_env(eschat, port),
   Rotes = [
     {'_', [
+      {"/ws[/:id]", eschat_websocket_h, #{utab => eschat_user:name(), mtab => eschat_msg:name()}},
+      {"/swagger", cowboy_static, {priv_file, eschat, "index.html"}},
+      {"/swagger.yaml", cowboy_static, {priv_file, eschat, "swagger.yaml"}},
       {"/api/:vsn/user/:action[/:id]", eschat_user_h,     []},
       {"/api/:vsn/chat[/:id]",        eschat_chat_h,     []},
+      {"/api/:vsn/message[/:id]",        eschat_message_h,     []},
       {'_',                           eschat_notfound_h, []}
     ]}
   ],
+  % ok = eschat_cluster:start_cluster(),
+
   Dispatch = cowboy_router:compile(Rotes),
-  Settings = [{port, 8998}],
+  Settings = [{port, Port}],
   Status = cowboy:start_clear(?MODULE, Settings, #{env => #{dispatch => Dispatch}}),
   lager:info("Web server ~p -> ~p : ~p", [?MODULE, Status, Settings]).

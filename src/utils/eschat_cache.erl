@@ -4,7 +4,6 @@
 
 -export([new/1]).
 -export([nowe/0]).
--export([procs/0]).
 -export([to_cache/3]).
 -export([from_cache/2]).
 -export([traverse_fun/1]).
@@ -20,8 +19,9 @@ to_cache(Rec, TableName, Id) ->
   ets:insert(TableName, UpdatedRec).
 
 from_cache(TableName, Key) ->
+  Test = ets:lookup(TableName, Key),
   Now = nowe(),
-  Res = case ets:lookup(TableName, Key) of
+  Res = case Test of
     [#cache{ttl = StoredNow, values = Values} = _Rec] when StoredNow >= Now -> Values;
     _ -> {error, undefined}
   end,
@@ -29,13 +29,12 @@ from_cache(TableName, Key) ->
 
 nowe() -> ?NOW_SEC.
 
-procs() -> ?PROC_LIST.
+
 
 ttl() -> ?CACHE_TTL + ?NOW_SEC.
 
 traverse_fun(TableName) ->
   fun (Key, Now) ->
-    % Now = now(),
     case ets:lookup(TableName, Key) of
       [#cache{ttl = StoredNow}] when StoredNow >= Now -> ok;
       [#cache{}] -> ets:delete(TableName, Key), ok;

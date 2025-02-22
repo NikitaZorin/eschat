@@ -1,0 +1,384 @@
+openapi: "3.0.0"
+info:
+  title: User API
+  version: "1.0.0"
+components:
+  securitySchemes:
+    session_id:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT  
+paths:
+  /api/v1/user/reg:
+    post:
+      tags:
+        - User
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - login
+                - password
+              properties:
+                login:
+                  type: string
+                  example: "test_user"
+                password:
+                  type: string
+                  example: "password123"
+      responses:
+        '200':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "User created"
+        '500':
+          description: Internal Server error
+
+  /api/v1/user/login:
+    post:
+      tags:
+        - User
+      summary: User Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - login
+                - password
+              properties:
+                login:
+                  type: string
+                  example: "test_user"
+                password:
+                  type: string
+                  example: "password123"
+      responses:
+        '200':
+          description: Success login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                    example: "32f8cbea-b1fe-4ce4-b6f9-931712ab580d"
+                  details:
+                    type: integer
+                    example: 1
+        '401':
+          description: Неверные учетные данные
+
+  /api/v1/user/session/{sessionId}:
+    get:
+      tags:
+        - Session
+      summary: Get session info
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            default: "32f8cbea-b1fe-4ce4-b6f9-931712ab580d"
+      responses:
+        '200':
+          description: Returning session info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: integer
+                    example: 1
+        '500':
+          description: Internal Server error
+
+  /api/v1/chat:
+    post:
+      tags:
+        - Chat
+      summary: Create Chat with users
+      security:
+        - session_id: []  
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - login
+                - password
+                - chat_name
+                - users
+              properties:
+                login:
+                  type: string
+                  example: "test_user"
+                password:
+                  type: string
+                  example: "password123"
+                chat_name:
+                  type: string
+                  example: "Test Chat Name"
+                users:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Test_user_login"]
+      responses:
+        '200':
+          description: Chat Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat_id:
+                    type: integer
+                    example: 1
+                  details:
+                    type: string
+                    example: "Chat created"
+        '500':
+          description: Internal Server error
+
+  /api/v1/chat/{id}:
+    get:
+      tags:
+        - Chat
+      summary: GET chat info by chat_id
+      security:
+        - session_id: [] 
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Getting Chat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat_id:
+                    type: integer
+                    example: 1
+                  owner_id:
+                    type: integer
+                    example: 1
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        is_owner:
+                          type: boolean
+                        user_id:
+                          type: integer
+                    example: [{"is_owner": true, "user_id": 1}]
+        '500':
+          description: Internal Server error
+    put:
+      tags:
+        - Chat
+      summary: Update Chat with users
+      security:
+        - session_id: [] 
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                  example: 1
+                chat_name:
+                  type: string
+                  example: "new chat name"
+                new_users:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Test_user_login"]
+                remove_users:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Test_user_login"]
+      responses:
+        '200':
+          description: Chat updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "chat_updated"
+        '500':
+          description: Internal Server error
+    delete:
+      tags:
+        - Chat
+      summary: Delete Chat with users
+      security:
+        - session_id: []  
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Chat deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "chat_deleted"
+        '500':
+          description: Internal Server error
+  /api/v1/message/{id}:
+    get:
+      tags:
+        - Message
+      summary: GET message info by message id
+      security:
+        - session_id: [] 
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Getting message 
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                    example: 1
+                  text:
+                    type: string
+                    example: "text"
+                  message_id:
+                    type: int
+                    example: 1
+                  chat_id:
+                    type: int
+                    example: 1
+                  updated_tz:
+                    type: string
+                    example: "2025-02-22T19:22:57.294Z"
+                  created_tz:
+                    type: string
+                    example: "2025-02-22T19:22:57.294Z"
+        '500':
+          description: Internal Server error
+    put:
+      tags:
+        - Message
+      summary: Update Chat with users
+      security:
+        - session_id: [] 
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                text:
+                  type: string
+                  example: "new_text"
+        '200':
+          description: Chat updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "msg_updated"
+        '500':
+          description: Internal Server error
+    delete:
+      tags:
+        - Message
+      summary: Delete Message
+      security:
+        - session_id: []  
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "msg_deleted"
+        '500':
+          description: Internal Server error
+security:
+  - session_id: []

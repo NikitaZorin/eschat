@@ -9,28 +9,24 @@
 -module(eschat_chat).
 -author("ginleaf").
 
+-include("eschat_chat_h.hrl").
+
 %% API
--export([new/1]).
+-export([new/2]).
 -export([get/1]).
 -export([update/2]).
 -export([remove/2]).
+-export([name/0]).
 
 get(ChatId) ->
-    DbRes = eschat_pool_manage:db_runner(<<"SELECT id FROM public.\"Chat\" WHERE id = $1">>, [
-        ChatId
-    ]),
-    case DbRes of
-        {error, _} -> {error, chat_not_exist};
-        {ok, _} -> eschat_chat_member:get(ChatId)
+    Sql = <<"SELECT id, name FROM public.\"Chat\" WHERE id = $1">>,
+    Res = eschat_cache:from_cache(name(), ChatId),
+    case Res of
+        #chat{id = ChatId} = Rec ->
+            {hit, Rec};
+        _ -> to_cache(Sql, ChatId)
     end.
-
-new(Struct) ->
-    case eschat_user:get_user(Struct) of
-        {error, undefined} ->
-            {error, user_not_found};
-        {error, Type} ->
-            {error, Type};
-        {_, UserData} ->
+new(Struct, UserId) ->
             ChatName = eschat_xpath:get_val(<<"chat_name">>, Struct),
             Res = eschat_pool_manage:db_runner(
                 <<"INSERT into \"Chat\" (name) VALUES($1) Returning id">>, [ChatName]
@@ -40,9 +36,9 @@ new(Struct) ->
                     {error, Type};
                 {_, {ok, [{ChatData} | _]}} ->
                     Users = eschat_xpath:get_val(<<"users">>, Struct),
-                    bulk_users_to_chat(Users, ChatData, UserData, add)
-            end
-    end.
+                    bulk_users_to_chat(Users, ChatData, UserId, add)
+            end.
+    % end.
 
 remove(ChatId, UserId) ->
     case eschat_chat_member:get(ChatId, UserId) of
@@ -56,7 +52,8 @@ remove(ChatId, UserId) ->
                 {ok, _} -> {ok, chat_deleted};
                 _ -> {error, db_error}
             end;
-        {ok, []} -> {error, chat_not_exist};
+        {ok, []} ->
+            {error, chat_not_exist};
         {error, Type} ->
             {error, Type}
     end.
@@ -105,13 +102,33 @@ bulk_users_to_chat(Users, ChatId, Action) ->
         {ok, {ok, Members}} -> bulk_members(Members, ChatId, Action);
         _ -> {error, db_error}
     end.
-% eschat_chat_member:new(UserId, ChatId, true).
 
-bulk_members([], _, _) ->
-    {result, ok};
+
+bulk_members([], ChatId, _) ->
+    {result, ChatId};
 bulk_members([{Id, _, _} | Rest], ChatId, remove) ->
     eschat_chat_member:remove(Id, ChatId),
     bulk_members(Rest, ChatId, remove);
 bulk_members([{Id, _, _} | Rest], ChatId, add) ->
     eschat_chat_member:new(Id, ChatId, false),
     bulk_members(Rest, ChatId, add).
+
+name() ->
+    ?MODULE.
+
+to_cache(Sql, ChatId) ->
+    {_, FunR} = eschat_pool_manage:db_runner(Sql, [ChatId]),
+    case FunR of
+        {ok, [{ChatId, Name } | _]} ->
+            case eschat_chat_member:get(ChatId) of
+                {error, Type} -> {error, Type};
+                {ok, Users, Owner} -> 
+                    ChatRec = #chat{id = ChatId, name = Name, users = Users, owner = Owner},
+                    eschat_cache:to_cache(ChatRec, name(), ChatId),
+                    {miss, ChatRec}
+            end;
+        {ok, []} ->
+            {error, undefined};
+        _ ->
+            {error, db_error}
+    end.

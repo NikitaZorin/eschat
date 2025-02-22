@@ -52,7 +52,7 @@ start_link() ->
 init([]) ->
     % init_cache(eschat_cache:procs()),
     % lists:foreach(fun(Proc) -> eschat_cache:new(Proc) end, Procs),
-    eschat_cache:new(eschat_user),
+    eschat_cache:new(eschat_user:name()),
     self() ! clear_cache,
     {ok, #eschat_db_user_cache_srv_state{}}.
 
@@ -122,29 +122,6 @@ code_change(_OldVsn, State = #eschat_db_user_cache_srv_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% init_cache([]) ->
-%     ok;
-% init_cache([Proc | Rest]) ->
-%     eschat_cache:new(Proc),
-%     init_cache(Rest).
-
-% init_traverse([]) ->
-%     ok;
-% init_traverse([Table | Rest]) ->
-%     traverse(Table),
-%     init_traverse(Rest).
-
-% traverse(TableName) ->
-%     % TableName:nowe(),
-%     Key = ets:first(TableName),
-%     traverse(TableName, Key, eschat_cache:nowe(), eschat_cache:traverse_fun(TableName)).
-
-% traverse(_, '$end_of_table', _, _) ->
-%     ok;
-% traverse(Name, Key, Now, Fun) ->
-%     Next = ets:next(Name, Key),
-%     Fun(Key, Now),
-%     traverse(Name, Next, Now, Fun).
 
 traverse() ->
     TableName = eschat_user:name(),

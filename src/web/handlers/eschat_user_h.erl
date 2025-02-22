@@ -10,6 +10,7 @@
 -behavior(cowboy_handler).
 
 -include("eschat_user_h.hrl").
+-include("eschat_session_h.hrl").
 
 -define(RESP_HEADERS(LINE, STATUS), #{
     <<"status">> => STATUS,
@@ -20,107 +21,74 @@
 
 %% API
 -export([init/2]).
--export([req_decode/1]).
--export([build_res/2]).
--export([build_res/3]).
 
-init(#{method := <<"GET">>, bindings := #{action := <<"session">>} = Det} = Req, Env) ->
+init(#{method := <<"GET">>, bindings := #{action := <<"session">>} = Det} = Req, _Env) ->
     SessionId = maps:get(id, Det),
-    {_, {_, _, UserId, Time}} = eschat_session:get_sess(SessionId),
-    Req2 = build_res(Req, #{<<"userId">> => UserId, <<"Time">> => Time}),
-    Res = cowboy_req:reply(200, Req2),
-    {ok, Res, Env};
-init(#{method := <<"GET">>, bindings := #{action := <<"user">>} = _Det} = Req, Env) ->
-    % {UserId, _} = string:to_integer(binary_to_list(Id)),
-    Req1 = req_decode(Req),
-    Req2 =
-        case Req1 of
-            {ok, Data, Req3} ->
-                case eschat_user:get_user(Data) of
-                    {error, Type} ->
-                        build_res(Req3, #{<<"details">> => Type});
-                    {Status, UserData} ->
-                        build_res(Req3, #{<<"details">> => UserData}, #{
-                            <<"x-cache">> => erlang:atom_to_binary(Status)
-                        })
-                end
-        end,
-    Res = cowboy_req:reply(200, Req2),
-    {ok, Res, Env};
-init(#{method := <<"POST">>, bindings := #{action := <<"login">>} = _Det} = Req, Env) ->
-    Req1 = req_decode(Req),
-    Req2 =
-        case Req1 of
-            {ok, Data, Req3} ->
-                case eschat_user:get_user(Data) of
-                    {error, Type} ->
-                        build_res(Req3, #{<<"details">> => Type});
-                    {Status, UserData} ->
-                        case eschat_session:new_sess(UserData) of
-                            {error, _Type} ->
-                                error;
-                            {ok, SessionId} ->
-                                build_res(
-                                    Req3,
-                                    #{
-                                        <<"details">> => UserData,
-                                        <<"sessionId">> => list_to_binary(SessionId)
-                                    },
-                                    #{<<"x-cache">> => erlang:atom_to_binary(Status)}
-                                )
-                        end
-                end;
-            _ ->
-                Req
-        end,
-    Res = cowboy_req:reply(200, Req2),
-    {ok, Res, Env};
-init(#{method := <<"POST">>, bindings := #{action := <<"reg">>} = _Det} = Req, Env) ->
-    Req1 = req_decode(Req),
-    Req2 =
-        case Req1 of
-            {ok, Data, Req3} ->
-                case eschat_user:new_user(Data) of
-                    {error, Type} ->
-                        build_res(Req3, #{<<"details">> => Type});
-                    {Status, _} ->
-                        build_res(
-                            Req3,
-                            #{<<"details">> => <<"User created">>},
-                            #{<<"x-cache">> => erlang:atom_to_binary(Status)}
-                        )
-                end;
-            _ ->
-                Req
-        end,
-    Res = cowboy_req:reply(200, Req2),
-    {ok, Res, Env};
+    SessInfo = eschat_session:get_sess(SessionId),
+    % Req2 =
+        case SessInfo of
+            {error, Type} ->
+                eschat_h:build_res(Req, #{<<"details">> => Type});
+            {Status, {_, _, UserId, Time, _}} ->
+                eschat_h:build_res(Req, #{<<"userId">> => UserId, <<"Time">> => Time}, #{<<"x-cache">> => erlang:atom_to_binary(Status)})
+        end;
+    % Res = cowboy_req:reply(200, Req2),
+    % {ok, Res, Env};
 init(Req, Env) ->
+    % Res =
+        case eschat_h:req_decode(Req) of
+            {ok, Data, Req2} ->
+                init(Req, Env, {Req2, Data});
+                % cowboy_req:reply(200, Req3);
+            {error, Reason} ->
+                eschat_h:build_res(Req, #{<<"details">> => Reason})
+        end.
+    % {ok, Res, Env}.
+init(#{method := <<"GET">>, bindings := #{action := <<"user">>} = _Det} = _, _Env, {Req, Data}) ->
+    case eschat_user:get_user(Data) of
+        {error, Type} ->
+            eschat_h:build_res(Req, #{<<"details">> => Type});
+        {Status, UserData} ->
+            eschat_h:build_res(Req, #{<<"details">> => UserData}, #{
+                <<"x-cache">> => erlang:atom_to_binary(Status)
+            })
+    end;
+init(#{method := <<"POST">>, bindings := #{action := <<"login">>} = _Det} = _, _Env, {Req, Data}) ->
+    case eschat_user:get_user(Data) of
+        {error, Type} ->
+            eschat_h:build_res(Req, #{<<"details">> => Type});
+        {Status, UserData} ->
+            session_create(UserData, Status, Req)
+    end;
+init(#{method := <<"POST">>, bindings := #{action := <<"reg">>} = _Det} = _, _Env, {Req, Data}) ->
+    case eschat_user:new_user(Data) of
+        {error, Type} ->
+            eschat_h:build_res(Req, #{<<"details">> => Type});
+        {Status, _} ->
+            eschat_h:build_res(
+                Req,
+                #{<<"details">> => <<"User created">>},
+                #{<<"x-cache">> => erlang:atom_to_binary(Status)}
+            )
+    end;
+
+init(Req, Env, _) ->
     eschat_notfound_h:init(cowboy_req:set_resp_headers(?RESP_HEADERS(<<"3">>, <<"ok">>), Req), Env).
 
-req_decode(Req) ->
-    CT = cowboy_req:header(<<"content-type">>, Req),
-    lager:debug("CT ~p", [CT]),
-    Result =
-        case CT of
-            <<"application/json">> ->
-                {ok, Body, Req2} = eschat_http_body:read(Req),
-                {ok, eschat_json:decode(Body), Req2};
-            <<"application/x-www-form-urlencoded">> ->
-                {ok, _Body, _Req2} = cowboy_req:read_urlencoded_body(Req);
-            _ ->
-                {error, unxepected_format}
-        end,
-    Result.
+session_create(UserId, Status, Req) ->
+    case eschat_session:new_sess(UserId) of
+        {error, _Type} ->
+            error;
+        {StatusSess, #session{id = SessionId}} ->
+            eschat_h:build_res(
+                Req,
+                #{
+                    <<"details">> => UserId,
+                    <<"sessionId">> => SessionId
+                },
+                #{<<"x-cache">> => erlang:atom_to_binary(Status),
+                <<"x-sess-cache">> => erlang:atom_to_binary(StatusSess)}
+            )
+    end.
 
-build_res(Req, Body) ->
-    build_res_final(Req, Body, ?RESP_HEADERS(<<"1">>, <<"ok">>)).
 
-build_res(Req, Body, Header) ->
-    FinalHeaders = maps:merge(?RESP_HEADERS(<<"1">>, <<"ok">>), Header),
-    build_res_final(Req, Body, FinalHeaders).
-
-build_res_final(Req, Body, Header) ->
-    Headers = cowboy_req:set_resp_headers(Header, Req),
-    JSB = eschat_json:encode(Body),
-    cowboy_req:set_resp_body(JSB, Headers).

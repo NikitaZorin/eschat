@@ -46,4 +46,7 @@ build_res(Req, Body, Header) ->
 build_res_final(Req, Body, Header) ->
   Headers = cowboy_req:set_resp_headers(Header, Req),
   JSB = eschat_json:encode(Body),
-  cowboy_req:set_resp_body(JSB, Headers).
+  Result = cowboy_req:set_resp_body(JSB, Headers),
+  Res = cowboy_req:reply(200, Result),
+  Env = [],
+  {ok, Res, Env}.

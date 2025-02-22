@@ -64,6 +64,20 @@ init([]) ->
         shutdown => 2000,
         type => worker,
         modules => dynamic
+        },
+        #{id => 'eschat_db_chat_cache_srv',
+        start => {'eschat_db_chat_cache_srv', start_link, []},
+        restart => permanent,
+        shutdown => 2000,
+        type => worker,
+        modules => dynamic
+        },
+        #{id => 'eschat_db_message_cache_srv',
+        start => {'eschat_db_message_cache_srv', start_link, []},
+        restart => permanent,
+        shutdown => 2000,
+        type => worker,
+        modules => dynamic
         }
     ],
 
